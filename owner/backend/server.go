@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/plzfgme/infosec-competition-202206/owner/backend/graph"
@@ -11,15 +12,11 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
-const defaultPort = "8081"
-
 func main() {
-	cfgPath := flag.StringP("config", "c", "", "config path")
+	cfgPath := flag.StringP("config", "c", "", "search config path")
+	port := flag.StringP("addr", "a", "8081", "local ui port")
 	flag.Parse()
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = defaultPort
-	}
+
 	r, err := graph.NewResolver(*cfgPath)
 	if err != nil {
 		log.Fatal(err)
@@ -27,10 +24,15 @@ func main() {
 
 	srv := handler.NewDefaultServer(generated.NewExecutableSchema(generated.Config{Resolvers: r}))
 
-	// http.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	http.Handle("/", http.FileServer(http.Dir("../frontend/dist")))
+	exePath, err := os.Executable()
+	if err != nil {
+		log.Fatal(err)
+	}
+	staticPath := filepath.Join(filepath.Dir(exePath), "static")
+
+	http.Handle("/", http.FileServer(http.Dir(staticPath)))
 	http.Handle("/query", srv)
 
-	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	log.Printf("connect to http://localhost:%s/ for user interface", *port)
+	log.Fatal(http.ListenAndServe(":"+*port, nil))
 }
